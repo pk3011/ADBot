@@ -3,7 +3,7 @@ services:
     name: telegram-auto-delete-bot
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python render_bot.py
+    startCommand: python main.py
     envVars:
       - key: BOT_TOKEN
-        value: YOUR_BOT_TOKEN
+        value: 8821134829:AAHuzhKPMm87sakBjXrrICI9aX80ysaCAY0
