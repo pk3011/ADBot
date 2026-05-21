@@ -1,12 +1,11 @@
 # =========================
-# TELEGRAM AUTO DELETE BOT
-# RENDER READY
+# AUTO DELETE BOT FOR RENDER
 # =========================
 
 import os
 import asyncio
-from threading import Thread
 from flask import Flask
+from threading import Thread
 
 from telegram import Update
 from telegram.ext import (
@@ -20,96 +19,96 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-TOKEN = os.getenv("BOT_TOKEN", "8821134829:AAHuzhKPMm87sakBjXrrICI9aX80ysaCAY0")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8821134829:AAHuzhKPMm87sakBjXrrICI9aX80ysaCAY0")
 
 DELETE_AFTER = 10
-
-PORT = int(os.environ.get("PORT", 10000))
+PORT = int(os.environ.get("PORT", 10000"))
 
 # =========================
-# FLASK SERVER
+# KEEP RENDER ALIVE
 # =========================
 
-web_app = Flask(__name__)
+flask_app = Flask(__name__)
 
-@web_app.route("/")
+@flask_app.route("/")
 def home():
-    return "Bot Running"
+    return "Bot is running!"
 
-def run_web():
-    web_app.run(host="0.0.0.0", port=PORT)
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=PORT)
 
 # =========================
 # DELETE FUNCTION
 # =========================
 
-async def auto_delete(context: ContextTypes.DEFAULT_TYPE):
+async def delete_msg(context: ContextTypes.DEFAULT_TYPE):
 
     job = context.job
 
     try:
         await context.bot.delete_message(
-            chat_id=job.data["chat_id"],
-            message_id=job.data["message_id"]
+            chat_id=job.chat_id,
+            message_id=job.data
         )
 
-        print(f"Deleted message {job.data['message_id']}")
+        print(f"Deleted {job.data}")
 
     except Exception as e:
-        print("Delete Error:", e)
+        print("Delete error:", e)
 
 # =========================
-# HANDLE ALL MESSAGES
+# HANDLE ALL MSG
 # =========================
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if not update.message:
+    if not update.effective_message:
         return
 
-    msg = update.message
+    msg = update.effective_message
 
-    print(f"Message detected: {msg.message_id}")
+    print(f"Received message {msg.message_id}")
 
-    # Schedule delete
+    # Schedule deletion
     context.job_queue.run_once(
-        auto_delete,
-        when=DELETE_AFTER,
-        data={
-            "chat_id": msg.chat_id,
-            "message_id": msg.message_id
-        }
+        delete_msg,
+        DELETE_AFTER,
+        chat_id=msg.chat_id,
+        data=msg.message_id,
     )
 
 # =========================
-# MAIN FUNCTION
+# MAIN
 # =========================
 
 async def main():
 
     app = (
         Application.builder()
-        .token(TOKEN)
+        .token(BOT_TOKEN)
         .build()
     )
 
-    # DELETE ALL MESSAGES
+    # ALL messages
     app.add_handler(
         MessageHandler(
             filters.ALL,
-            handle_message
+            all_messages
         )
     )
 
-    print("Bot Started")
+    print("Bot started")
 
     await app.initialize()
     await app.start()
 
+    # IMPORTANT
     await app.updater.start_polling(
+        drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES
     )
 
+    # RUN FOREVER
     while True:
         await asyncio.sleep(3600)
 
@@ -119,6 +118,8 @@ async def main():
 
 if __name__ == "__main__":
 
-    Thread(target=run_web).start()
+    # Flask for Render
+    Thread(target=run_flask).start()
 
+    # Telegram Bot
     asyncio.run(main())
