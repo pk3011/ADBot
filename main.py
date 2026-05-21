@@ -4,15 +4,11 @@ from threading import Thread
 
 from telegram import Update
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     MessageHandler,
     ContextTypes,
     filters,
 )
-
-# ======================
-# CONFIG
-# ======================
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -21,20 +17,20 @@ DELETE_AFTER = 10
 PORT = int(os.environ.get("PORT", 10000))
 
 # ======================
-# FLASK WEB SERVER
+# FLASK
 # ======================
 
-app = Flask(__name__)
+app_web = Flask(__name__)
 
-@app.route("/")
+@app_web.route("/")
 def home():
     return "Bot Running"
 
 def run_web():
-    app.run(host="0.0.0.0", port=PORT)
+    app_web.run(host="0.0.0.0", port=PORT)
 
 # ======================
-# DELETE MESSAGE
+# DELETE FUNCTION
 # ======================
 
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
@@ -73,13 +69,13 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ======================
-# START BOT
+# BOT
 # ======================
 
 def run_bot():
 
     application = (
-        ApplicationBuilder()
+        Application.builder()
         .token(TOKEN)
         .build()
     )
@@ -101,8 +97,6 @@ def run_bot():
 
 if __name__ == "__main__":
 
-    # Flask thread
     Thread(target=run_web).start()
 
-    # Telegram bot
     run_bot()
