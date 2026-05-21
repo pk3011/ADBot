@@ -2,11 +2,11 @@ import asyncio
 from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
-# 🔑 Pega aquí tu token de BotFather
+# 🔑 Paste your BotFather token here
 TOKEN = "8724187100:AAH98YncO6Bb1eQf0OM0YhgfK1JrGfnP7nE"
 
-# ⏱️ Tiempo antes de borrar (en segundos)
-DELETE_AFTER = 18000  # 5 horas
+# ⏱️ Time before deleting (in seconds)
+DELETE_AFTER = 10  # 5 horas
 
 async def delete_later(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
@@ -21,7 +21,7 @@ async def delete_later(context: ContextTypes.DEFAULT_TYPE):
 async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
 
-    # Detecta fotos, videos o documentos
+    # Detects photos, videos, or documents.
     if msg.photo or msg.video or msg.document:
         context.job_queue.run_once(
             delete_later,
