@@ -1,12 +1,10 @@
 # =========================
-# render_bot.py
-# AUTO DELETE MEDIA BOT
-# WORKS IN GROUPS + PRIVATE
+# TELEGRAM AUTO DELETE BOT
+# RENDER READY
 # =========================
 
 import os
 import asyncio
-import logging
 from threading import Thread
 from flask import Flask
 
@@ -22,40 +20,31 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-TOKEN = os.getenv("BOT_TOKEN", "8821134829:8821134829:AAHuzhKPMm87sakBjXrrICI9aX80ysaCAY0")
+TOKEN = os.getenv("BOT_TOKEN", "8821134829:AAHuzhKPMm87sakBjXrrICI9aX80ysaCAY0")
 
-# Delete after seconds
 DELETE_AFTER = 10
 
 PORT = int(os.environ.get("PORT", 10000))
 
 # =========================
-# LOGGING
+# FLASK SERVER
 # =========================
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
+web_app = Flask(__name__)
 
-# =========================
-# KEEP RENDER ALIVE
-# =========================
-
-app_web = Flask(__name__)
-
-@app_web.route("/")
+@web_app.route("/")
 def home():
-    return "Bot Running Successfully"
+    return "Bot Running"
 
 def run_web():
-    app_web.run(host="0.0.0.0", port=PORT)
+    web_app.run(host="0.0.0.0", port=PORT)
 
 # =========================
-# DELETE MESSAGE
+# DELETE FUNCTION
 # =========================
 
-async def delete_message(context: ContextTypes.DEFAULT_TYPE):
+async def auto_delete(context: ContextTypes.DEFAULT_TYPE):
+
     job = context.job
 
     try:
@@ -63,76 +52,61 @@ async def delete_message(context: ContextTypes.DEFAULT_TYPE):
             chat_id=job.data["chat_id"],
             message_id=job.data["message_id"]
         )
-        print(f"Deleted: {job.data['message_id']}")
+
+        print(f"Deleted message {job.data['message_id']}")
 
     except Exception as e:
-        print(f"Delete failed: {e}")
+        print("Delete Error:", e)
 
 # =========================
-# HANDLE MEDIA
+# HANDLE ALL MESSAGES
 # =========================
 
-async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.message:
         return
 
     msg = update.message
 
-    # Detect media
-    if (
-        msg.photo
-        or msg.video
-        or msg.document
-        or msg.animation
-        or msg.audio
-        or msg.voice
-        or msg.video_note
-    ):
+    print(f"Message detected: {msg.message_id}")
 
-        print(f"Media detected in chat {msg.chat_id}")
-
-        context.job_queue.run_once(
-            delete_message,
-            when=DELETE_AFTER,
-            data={
-                "chat_id": msg.chat_id,
-                "message_id": msg.message_id
-            }
-        )
+    # Schedule delete
+    context.job_queue.run_once(
+        auto_delete,
+        when=DELETE_AFTER,
+        data={
+            "chat_id": msg.chat_id,
+            "message_id": msg.message_id
+        }
+    )
 
 # =========================
-# MAIN
+# MAIN FUNCTION
 # =========================
 
 async def main():
 
-    application = (
+    app = (
         Application.builder()
         .token(TOKEN)
         .build()
     )
 
-    # ALL MEDIA TYPES
-    media_filter = (
-        filters.PHOTO
-        | filters.VIDEO
-        | filters.Document.ALL
-        | filters.AUDIO
-        | filters.VOICE
-        | filters.ANIMATION
-        | filters.VIDEO_NOTE
+    # DELETE ALL MESSAGES
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            handle_message
+        )
     )
 
-    application.add_handler(
-        MessageHandler(media_filter, handle_media)
-    )
+    print("Bot Started")
 
-    print("Bot Started...")
+    await app.initialize()
+    await app.start()
 
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling(
+    await app.updater.start_polling(
         allowed_updates=Update.ALL_TYPES
     )
 
@@ -145,8 +119,6 @@ async def main():
 
 if __name__ == "__main__":
 
-    # Flask thread
     Thread(target=run_web).start()
 
-    # Telegram bot
     asyncio.run(main())
