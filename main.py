@@ -1,28 +1,83 @@
-import asyncio
+# =========================
+# render_bot.py
+# Telegram Auto Delete Media Bot for Render
+# =========================
+
+import os
+import logging
+from flask import Flask
+from threading import Thread
+
 from telegram import Update
-from telegram.ext import Application, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
-# 🔑 Paste your BotFather token here
-TOKEN = "8724187100:AAH98YncO6Bb1eQf0OM0YhgfK1JrGfnP7nE"
+# =========================
+# CONFIG
+# =========================
 
-# ⏱️ Time before deleting (in seconds)
-DELETE_AFTER = 10  # 5 horas
+TOKEN = os.getenv("BOT_TOKEN", "8821134829:AAHuzhKPMm87sakBjXrrICI9aX80ysaCAY0)
+
+# Auto delete time (seconds)
+DELETE_AFTER = 10
+
+# Render uses PORT env
+PORT = int(os.environ.get("PORT", 10000))
+
+# =========================
+# LOGGING
+# =========================
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+
+# =========================
+# KEEP ALIVE WEB SERVER
+# =========================
+
+flask_app = Flask(__name__)
+
+@flask_app.route("/")
+def home():
+    return "Bot is running!"
+
+def run_web():
+    flask_app.run(host="0.0.0.0", port=PORT)
+
+# =========================
+# DELETE FUNCTION
+# =========================
 
 async def delete_later(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
+
     try:
         await context.bot.delete_message(
             chat_id=job.data["chat_id"],
             message_id=job.data["message_id"]
         )
-    except:
-        pass
+    except Exception as e:
+        print(f"Delete error: {e}")
+
+# =========================
+# HANDLE MEDIA
+# =========================
 
 async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
 
-    # Detects photos, videos, or documents.
+    if not msg:
+        return
+
+    # Detect photos, videos, documents
     if msg.photo or msg.video or msg.document:
+
         context.job_queue.run_once(
             delete_later,
             when=DELETE_AFTER,
@@ -32,8 +87,39 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         )
 
-app = Application.builder().token(TOKEN).build()
+# =========================
+# MAIN BOT
+# =========================
 
-app.add_handler(MessageHandler(filters.ALL, handle_media))
+async def main():
+    app = Application.builder().token(TOKEN).build()
 
-app.run_polling()
+    # All media messages
+    app.add_handler(
+        MessageHandler(
+            filters.PHOTO | filters.VIDEO | filters.Document.ALL,
+            handle_media
+        )
+    )
+
+    print("Bot started successfully...")
+
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+
+    # Run forever
+    while True:
+        await asyncio.sleep(3600)
+
+# =========================
+# START EVERYTHING
+# =========================
+
+if __name__ == "__main__":
+
+    # Start Flask server for Render
+    Thread(target=run_web).start()
+
+    # Start Telegram bot
+    asyncio.run(main())
