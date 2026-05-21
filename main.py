@@ -1,11 +1,12 @@
-# ==============================
-# FULL FINAL AUTO DELETE BOT
+# =====================================================
+# FINAL AUTO DELETE BOT
 # WORKS ON RENDER
 # Deletes:
 # - User messages
-# - Bot replies
-# - Other bot messages in group
-# ==============================
+# - Your bot replies
+# - Other bot replies
+# - Media / text / stickers
+# =====================================================
 
 import os
 from threading import Thread
@@ -19,9 +20,9 @@ from telegram.ext import (
     filters,
 )
 
-# ==============================
+# =====================================================
 # CONFIG
-# ==============================
+# =====================================================
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -29,22 +30,22 @@ DELETE_AFTER = 10
 
 PORT = int(os.environ.get("PORT", 10000))
 
-# ==============================
+# =====================================================
 # FLASK SERVER
-# ==============================
+# =====================================================
 
 web = Flask(__name__)
 
 @web.route("/")
 def home():
-    return "Bot Running"
+    return "Bot Running Successfully"
 
 def run_web():
     web.run(host="0.0.0.0", port=PORT)
 
-# ==============================
+# =====================================================
 # DELETE FUNCTION
-# ==============================
+# =====================================================
 
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
 
@@ -61,23 +62,20 @@ async def delete_message(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Delete Error: {e}")
 
-# ==============================
+# =====================================================
 # HANDLE ALL MESSAGES
-# ==============================
+# =====================================================
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if not update.message:
+    if not update.effective_message:
         return
 
-    msg = update.message
+    msg = update.effective_message
 
     print(f"Received message: {msg.message_id}")
 
-    # ==========================
-    # DELETE USER MESSAGE
-    # ==========================
-
+    # Delete every message
     context.job_queue.run_once(
         delete_message,
         DELETE_AFTER,
@@ -85,22 +83,9 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data=msg.message_id
     )
 
-    # ==========================
-    # DELETE OTHER BOT MESSAGES
-    # ==========================
-
-    if msg.from_user and msg.from_user.is_bot:
-
-        context.job_queue.run_once(
-            delete_message,
-            DELETE_AFTER,
-            chat_id=msg.chat_id,
-            data=msg.message_id
-        )
-
-# ==============================
+# =====================================================
 # START BOT
-# ==============================
+# =====================================================
 
 def run_bot():
 
@@ -110,10 +95,10 @@ def run_bot():
         .build()
     )
 
-    # HANDLE ALL MESSAGES
+    # Handle ALL normal messages
     app.add_handler(
         MessageHandler(
-            filters.ALL,
+            ~filters.StatusUpdate.ALL,
             handle
         )
     )
@@ -125,9 +110,9 @@ def run_bot():
         drop_pending_updates=True
     )
 
-# ==============================
+# =====================================================
 # MAIN
-# ==============================
+# =====================================================
 
 if __name__ == "__main__":
 
