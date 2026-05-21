@@ -1,14 +1,27 @@
+# ==============================
+# FULL FINAL AUTO DELETE BOT
+# WORKS ON RENDER
+# Deletes:
+# - User messages
+# - Bot replies
+# - Other bot messages in group
+# ==============================
+
 import os
-from flask import Flask
 from threading import Thread
+from flask import Flask
 
 from telegram import Update
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     MessageHandler,
     ContextTypes,
     filters,
 )
+
+# ==============================
+# CONFIG
+# ==============================
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -16,22 +29,22 @@ DELETE_AFTER = 10
 
 PORT = int(os.environ.get("PORT", 10000))
 
-# ======================
-# FLASK
-# ======================
+# ==============================
+# FLASK SERVER
+# ==============================
 
-app_web = Flask(__name__)
+web = Flask(__name__)
 
-@app_web.route("/")
+@web.route("/")
 def home():
     return "Bot Running"
 
 def run_web():
-    app_web.run(host="0.0.0.0", port=PORT)
+    web.run(host="0.0.0.0", port=PORT)
 
-# ======================
+# ==============================
 # DELETE FUNCTION
-# ======================
+# ==============================
 
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
 
@@ -43,14 +56,14 @@ async def delete_message(context: ContextTypes.DEFAULT_TYPE):
             message_id=job.data
         )
 
-        print("Deleted")
+        print(f"Deleted message: {job.data}")
 
     except Exception as e:
-        print(e)
+        print(f"Delete Error: {e}")
 
-# ======================
-# HANDLE MESSAGE
-# ======================
+# ==============================
+# HANDLE ALL MESSAGES
+# ==============================
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -59,44 +72,67 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = update.message
 
-    print("Message received")
+    print(f"Received message: {msg.message_id}")
+
+    # ==========================
+    # DELETE USER MESSAGE
+    # ==========================
 
     context.job_queue.run_once(
         delete_message,
         DELETE_AFTER,
         chat_id=msg.chat_id,
-        data=msg.message_id,
+        data=msg.message_id
     )
 
-# ======================
-# BOT
-# ======================
+    # ==========================
+    # DELETE OTHER BOT MESSAGES
+    # ==========================
+
+    if msg.from_user and msg.from_user.is_bot:
+
+        context.job_queue.run_once(
+            delete_message,
+            DELETE_AFTER,
+            chat_id=msg.chat_id,
+            data=msg.message_id
+        )
+
+# ==============================
+# START BOT
+# ==============================
 
 def run_bot():
 
-    application = (
-        Application.builder()
+    app = (
+        ApplicationBuilder()
         .token(TOKEN)
         .build()
     )
 
-    application.add_handler(
-        MessageHandler(filters.ALL, handle)
+    # HANDLE ALL MESSAGES
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            handle
+        )
     )
 
-    print("Bot Started")
+    print("Bot Started Successfully")
 
-    application.run_polling(
+    app.run_polling(
         allowed_updates=Update.ALL_TYPES,
         drop_pending_updates=True
     )
 
-# ======================
+# ==============================
 # MAIN
-# ======================
+# ==============================
 
 if __name__ == "__main__":
 
+    # Start Flask server
     Thread(target=run_web).start()
 
+    # Start Telegram bot
     run_bot()
