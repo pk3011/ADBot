@@ -1,34 +1,43 @@
 import os
-import asyncio
 from flask import Flask
 from threading import Thread
 
 from telegram import Update
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     MessageHandler,
     ContextTypes,
     filters,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+# ======================
+# CONFIG
+# ======================
+
+TOKEN = os.getenv("BOT_TOKEN")
 
 DELETE_AFTER = 10
 
 PORT = int(os.environ.get("PORT", 10000))
 
-# Flask app
-flask_app = Flask(__name__)
+# ======================
+# FLASK WEB SERVER
+# ======================
 
-@flask_app.route("/")
+app = Flask(__name__)
+
+@app.route("/")
 def home():
-    return "Bot running"
+    return "Bot Running"
 
-def run_flask():
-    flask_app.run(host="0.0.0.0", port=PORT)
+def run_web():
+    app.run(host="0.0.0.0", port=PORT)
 
-# Delete function
-async def delete_msg(context: ContextTypes.DEFAULT_TYPE):
+# ======================
+# DELETE MESSAGE
+# ======================
+
+async def delete_message(context: ContextTypes.DEFAULT_TYPE):
 
     job = context.job
 
@@ -43,42 +52,57 @@ async def delete_msg(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(e)
 
-# Handle messages
-async def all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ======================
+# HANDLE MESSAGE
+# ======================
+
+async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.message:
         return
 
     msg = update.message
 
+    print("Message received")
+
     context.job_queue.run_once(
-        delete_msg,
+        delete_message,
         DELETE_AFTER,
         chat_id=msg.chat_id,
         data=msg.message_id,
     )
 
-# Main
-async def main():
+# ======================
+# START BOT
+# ======================
 
-    app = Application.builder().token(BOT_TOKEN).build()
+def run_bot():
 
-    app.add_handler(
-        MessageHandler(filters.ALL, all_messages)
+    application = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .build()
     )
 
-    await app.initialize()
-    await app.start()
+    application.add_handler(
+        MessageHandler(filters.ALL, handle)
+    )
 
-    await app.updater.start_polling()
+    print("Bot Started")
 
-    print("Bot started")
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True
+    )
 
-    while True:
-        await asyncio.sleep(3600)
+# ======================
+# MAIN
+# ======================
 
 if __name__ == "__main__":
 
-    Thread(target=run_flask).start()
+    # Flask thread
+    Thread(target=run_web).start()
 
-    asyncio.run(main())
+    # Telegram bot
+    run_bot()
